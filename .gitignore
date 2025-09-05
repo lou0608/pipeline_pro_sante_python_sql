@@ -1,0 +1,15 @@
+# Fichiers Python compilés
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Bases de données locales
+*.db
+*.sqlite
+
+# Variables d'environnement
+.env
+
+# Dossier de données locales
+drop/
