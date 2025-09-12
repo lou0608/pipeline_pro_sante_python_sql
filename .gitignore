@@ -9,6 +9,7 @@ __pycache__/
 *.sqlite
 
 # Variables d'environnement
+.venv/
 .env
 
 # Dossier de données locales
