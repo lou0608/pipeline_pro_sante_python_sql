@@ -1,0 +1,60 @@
+name: CD Smoke (local PG)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  smoke:
+    runs-on: [self-hosted, Windows, X64]
+
+    env:
+      PGHOST: ${{ secrets.PGHOST }}
+      PGPORT: ${{ secrets.PGPORT }}
+      PGDATABASE: ${{ secrets.PGDATABASE }}
+      PGUSER: ${{ secrets.PGUSER }}
+      PGPASSWORD: ${{ secrets.PGPASSWORD }}
+      LOG_LEVEL: INFO
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install deps
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          pip install psycopg2-binary pandas pyarrow
+
+      - name: Run pipeline (staging + dims, 2018)
+        shell: pwsh
+        run: |
+          python med_demo/app/pipeline_runner.py --year 2018 --stop-on-fail --skip-facts
+
+      - name: Verify staging > 0 (2018)
+        shell: pwsh
+        run: |
+          @'
+          import os, psycopg2, sys
+          cn = psycopg2.connect(
+            host=os.getenv("PGHOST"),
+            port=os.getenv("PGPORT"),
+            dbname=os.getenv("PGDATABASE"),
+            user=os.getenv("PGUSER"),
+            password=os.getenv("PGPASSWORD"),
+          )
+          with cn, cn.cursor() as cur:
+            cur.execute('SELECT COUNT(*) FROM "pro_sante".stg_pro_sante_raw WHERE annee=2018')
+            rows = cur.fetchone()[0]
+            print("Rows STAGING 2018:", rows)
+            if rows == 0:
+              sys.exit("Smoke failed: staging 2018 is empty")
+            else:
+              print("Smoke OK")
+          '@ | python -
