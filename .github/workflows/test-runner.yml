@@ -1,0 +1,9 @@
+name: Test Runner
+
+on: [workflow_dispatch]
+
+jobs:
+  hello:
+    runs-on: self-hosted   # ← et pas ubuntu-latest
+    steps:
+      - run: echo "Hello from my self-hosted runner on Windows!"
