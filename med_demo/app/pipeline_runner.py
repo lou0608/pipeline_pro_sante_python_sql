@@ -20,6 +20,8 @@ import argparse
 import logging
 from types import ModuleType
 from typing import Optional
+from datetime import datetime, timezone
+from ops_logger import log_run
 
 
 # ========= LOGGING =========
@@ -54,28 +56,29 @@ def _call_module_main(mod: ModuleType, year: int, logger: logging.Logger) -> Non
         main_fn()
 
 
-def _run_step(
-    title: str,
-    mod: ModuleType,
-    year: int,
-    logger: logging.Logger,
-    stop_on_fail: bool = False,
-) -> float:
-    """
-    Exécute une étape (module) avec mesure de durée et gestion d'erreur.
-    Retourne la durée en secondes.
-    """
+def _run_step(title: str, mod: ModuleType, year: int, logger: logging.Logger, stop_on_fail: bool = False) -> float:
     logger.info("=== Début %s ===", title)
+    started = datetime.now(timezone.utc)
     t0 = time.time()
+    status = "OK"
+    msg = None
     try:
         _call_module_main(mod, year, logger)
     except Exception as e:
-        logger.exception("❌ Échec étape %s : %s", title, e)
+        status = "KO"
+        msg = str(e)
+        logger.exception("Échec étape %s : %s", title, e)
         if stop_on_fail:
-            sys.exit(1)
-    dt = time.time() - t0
-    logger.info("=== Étape %s OK (%.1fs) ===", title, dt)
-    return dt
+            finished = datetime.now(timezone.utc)
+            raise
+    finally:
+        finished = datetime.now(timezone.utc)
+        dt = time.time() - t0
+        # rows_written: inconnu ici -> None (on suit la durée/état)
+        log_run("pro_sante", title, started, finished,
+                status, rows_written=None, message=msg)
+        logger.info("=== Fin %s (%.1fs) ===", title, dt)
+    return time.time() - t0
 
 
 # ========= ENTRYPOINT =========
@@ -145,7 +148,7 @@ def main(argv: Optional[list] = None) -> None:
         logger.info("=== Étape faits SKIPPED ===")
 
     total_dt = time.time() - total_t0
-    logger.info("✅ Pipeline terminé sans erreur. (%.1fs)", total_dt)
+    logger.info("Pipeline terminé sans erreur. (%.1fs)", total_dt)
 
 
 if __name__ == "__main__":

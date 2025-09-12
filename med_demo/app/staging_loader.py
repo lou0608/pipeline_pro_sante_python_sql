@@ -17,6 +17,8 @@ from typing import Optional
 
 import pandas as pd
 import psycopg2
+from ops_logger import log_volume
+from datetime import date
 
 
 # ========= LOGGING =========
@@ -48,13 +50,16 @@ COLS = [
 ]
 
 # ========= CONNEXION POSTGRES =========
+
 PG_CONN = dict(
     host=os.getenv("PGHOST", "localhost"),
     port=int(os.getenv("PGPORT", "5432")),
     dbname=os.getenv("PGDATABASE", "Health_Professional"),
     user=os.getenv("PGUSER", "postgres"),
-    password=os.getenv("PGPASSWORD", "Sky.tess31310"),
+    password=os.getenv("PGPASSWORD"),  # pas de défaut
 )
+if not PG_CONN["password"]:
+    raise RuntimeError("PGPASSWORD manquant (env/Secrets).")
 
 
 # ========= ETAPE 1 : INGESTION =========
@@ -259,6 +264,28 @@ def main(year: Optional[int] = None):
 
     # 3) UPSERT staging
     upsert_to_staging(df_ready, y)
+    # 4) Compte des lignes staging pour l'année et log volume annuel
+    with psycopg2.connect(**PG_CONN) as conn, conn.cursor() as cur:
+        cur.execute("""
+            SELECT COUNT(*) 
+            FROM "pro_sante".stg_pro_sante_raw
+            WHERE annee = %s
+              AND region <> '99'
+              AND departement <> '999'
+              AND libelle_sexe IN ('hommes','femmes')
+              AND classe_age <> 'tout_age'
+        """, (y,))
+        (cnt,) = cur.fetchone()
+
+    log_volume(
+        pipeline="pro_sante",
+        entity="stg_pro_sante_raw",
+        as_of_date=date(y, 12, 31),
+        volume=cnt,
+        expected_min=1000,   # seuil initial simple
+        agg_window='Y',
+        extra={"year": y}
+    )
 
     log.info("=== FIN STAGING ===")
 

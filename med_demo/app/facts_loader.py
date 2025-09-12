@@ -6,6 +6,9 @@ import logging
 import psycopg2
 from typing import Optional
 
+from datetime import date
+from ops_logger import log_volume
+
 # ==== LOGGING ====
 log = logging.getLogger("facts_loader")
 
@@ -15,8 +18,10 @@ PG_CONN = {
     "port": int(os.getenv("PGPORT", "5432")),
     "dbname": os.getenv("PGDATABASE", "Health_Professional"),
     "user": os.getenv("PGUSER", "postgres"),
-    "password": os.getenv("PGPASSWORD", "Sky.tess31310"),
+    "password": os.getenv("PGPASSWORD"),  # pas de défaut
 }
+if not PG_CONN["password"]:
+    raise RuntimeError("PGPASSWORD manquant (env/Secrets).")
 
 
 def _exec_sql(conn, sql: str, params: tuple, label: str) -> int:
@@ -94,6 +99,26 @@ def load_facts(year: Optional[int]) -> None:
         _exec_sql(conn, sql, params, "FACTS upsert")
         conn.commit()
         log.info("[OK] Faits chargés%s", f" pour {year}" if year else "")
+        # Compte des lignes de faits pour l'année y
+    if year is not None:
+        with psycopg2.connect(**PG_CONN) as conn, conn.cursor() as cur:
+            cur.execute("""
+                SELECT COUNT(*)
+                FROM "pro_sante".table_faits_pro_v2 f
+                WHERE f.id_annee = (SELECT id_annee FROM "pro_sante".annees WHERE annee = %s)
+            """, (year,))
+            (cnt_faits,) = cur.fetchone()
+
+        log_volume(
+            pipeline="pro_sante",
+            entity="table_faits_pro_v2",
+            as_of_date=date(year, 12, 31),
+            volume=cnt_faits,
+            expected_min=1,   # seuil initial simple
+            agg_window='Y',
+            extra={"year": year}
+        )
+
 
 # ==== MAIN ====
 

@@ -13,13 +13,24 @@ DROP_DIR = Path(os.getenv(
     "DROP_DIR",
     r"C:\Users\loudo\Documents\YNOV COURS\CERTIFICATION YNOV\med_demo\drop"
 ))
-PG = {
+"""PG = {
     "host": os.getenv("PGHOST", "localhost"),
     "port": int(os.getenv("PGPORT", "5432")),
     "dbname": os.getenv("PGDATABASE", "Health_Professional"),
     "user": os.getenv("PGUSER", "postgres"),
     "password": os.getenv("PGPASSWORD", "Sky.tess31310"),
+}"""
+
+PG = {
+    "host": os.getenv("PGHOST", "localhost"),
+    "port": int(os.getenv("PGPORT", "5432")),
+    "dbname": os.getenv("PGDATABASE", "Health_Professional"),
+    "user": os.getenv("PGUSER", "postgres"),
+    "password": os.getenv("PGPASSWORD"),
 }
+if not PG["password"]:
+    raise RuntimeError("PGPASSWORD manquant (env/Secrets).")
+
 TABLE = '"pro_sante".stg_pro_sante_raw'
 
 # Colonnes attendues (ton schéma Parquet)
