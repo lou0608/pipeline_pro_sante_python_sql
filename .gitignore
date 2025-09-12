@@ -13,3 +13,7 @@ __pycache__/
 
 # Dossier de données locales
 drop/
+
+*.parquet
+*.csv
+*.pbix

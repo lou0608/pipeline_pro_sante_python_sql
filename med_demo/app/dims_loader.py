@@ -4,15 +4,27 @@ import logging
 import psycopg2
 
 # ==== CONFIG CONNEXION ====
-PG_CONN = {
+"""PG_CONN = {
     "host": "localhost",
     "port": 5432,
     "dbname": "Health_Professional",
     "user": "postgres",
     "password": "Sky.tess31310"   # ⚠️ adapte avec ton mot de passe
-}
+}"""
 
-YEAR = None  # Mets une année (ex: 2023) ou None pour tout charger
+import os
+PG_CONN = {
+    "host": os.getenv("PGHOST", "localhost"),
+    "port": int(os.getenv("PGPORT", "5432")),
+    "dbname": os.getenv("PGDATABASE", "Health_Professional"),
+    "user": os.getenv("PGUSER", "postgres"),
+    "password": os.getenv("PGPASSWORD"),
+}
+if not PG_CONN["password"]:
+    raise RuntimeError("PGPASSWORD manquant (env/Secrets).")
+
+
+YEAR = None
 
 
 # ==== LOGGER ====
@@ -162,8 +174,8 @@ def populate_dimensions(year: int | None = None):
 
 
 # ==== MAIN ====
-def main():
-    populate_dimensions(YEAR)
+def main(year: int | None = None):
+    populate_dimensions(year)
 
 
 if __name__ == "__main__":
