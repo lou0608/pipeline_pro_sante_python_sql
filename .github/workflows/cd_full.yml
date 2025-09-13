@@ -60,11 +60,11 @@ jobs:
         run: |
           .\.venv\Scripts\python med_demo/app/pipeline_runner.py --year $env:YEAR --stop-on-fail
 
-      - name: Verify facts > 0
+      - name: Verify facts > 0 (via table annees)
         run: |
           @'
           import os, psycopg2, sys
-          y = os.environ["YEAR"]
+          y = os.environ["YEAR"]  # ex: "2017"
           conn = psycopg2.connect(
               host=os.environ["PGHOST"],
               port=os.environ["PGPORT"],
@@ -73,11 +73,18 @@ jobs:
               password=os.environ["PGPASSWORD"],
           )
           with conn, conn.cursor() as cur:
-              cur.execute('SELECT COUNT(*) FROM "pro_sante".table_faits_pro_v2 WHERE id_annee=%s', (y,))
+              cur.execute("""
+                  SELECT COUNT(*)
+                  FROM "pro_sante".table_faits_pro_v2 f
+                  JOIN "pro_sante".annees a
+                    ON f.id_annee = a.id_annee
+                  WHERE a.annee = %s
+              """, (int(y),))
               n = cur.fetchone()[0]
               print("Rows FACTS", y, ":", n)
               if n == 0:
-                  sys.exit("Smoke failed: facts are empty")
+                  sys.exit("Facts check failed: no rows for YEAR=" + y)
               else:
                   print("Facts OK")
           '@ | .\.venv\Scripts\python -
+
