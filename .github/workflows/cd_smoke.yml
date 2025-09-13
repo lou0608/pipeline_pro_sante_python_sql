@@ -1,15 +1,35 @@
 name: CD Smoke (local PG)
 
 on:
-  workflow_dispatch:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
+  workflow_dispatch:
+    inputs:
+      year:
+        description: "Année à charger"
+        required: true
+        default: "2018"
+        type: choice
+        options:
+          - "2010"
+          - "2011"
+          - "2012"
+          - "2013"
+          - "2014"
+          - "2015"
+          - "2016"
+          - "2017"
+          - "2018"
+          - "2019"
+          - "2020"
+          - "2021"
+          - "2022"
+          - "2023"
 
 jobs:
   smoke:
     runs-on: [self-hosted, Windows, X64]
 
-    # 👉 Force Windows PowerShell (pas pwsh)
     defaults:
       run:
         shell: powershell
@@ -21,6 +41,8 @@ jobs:
       PGUSER: ${{ secrets.PGUSER }}
       PGPASSWORD: ${{ secrets.PGPASSWORD }}
       LOG_LEVEL: INFO
+      PYTHONUTF8: "1"
+      YEAR: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.year || vars.YEAR || '2018' }}
 
     steps:
       - name: Checkout
@@ -37,27 +59,28 @@ jobs:
           .\.venv\Scripts\python -m pip install --upgrade pip
           .\.venv\Scripts\pip install psycopg2-binary pandas pyarrow
 
-      - name: Run pipeline (staging + dims, 2018)
+      - name: Run pipeline (staging + dims) - year ${{ env.YEAR }}
         run: |
-          .\.venv\Scripts\python med_demo/app/pipeline_runner.py --year 2018 --stop-on-fail --skip-facts
+          .\.venv\Scripts\python med_demo/app/pipeline_runner.py --year $env:YEAR --stop-on-fail --skip-facts
 
-      - name: Verify staging > 0 (2018)
+      - name: Verify staging > 0
         run: |
           @'
           import os, psycopg2, sys
-          cn = psycopg2.connect(
-            host=os.getenv("PGHOST"),
-            port=os.getenv("PGPORT"),
-            dbname=os.getenv("PGDATABASE"),
-            user=os.getenv("PGUSER"),
-            password=os.getenv("PGPASSWORD"),
+          y = os.environ["YEAR"]
+          conn = psycopg2.connect(
+              host=os.environ["PGHOST"],
+              port=os.environ["PGPORT"],
+              dbname=os.environ["PGDATABASE"],
+              user=os.environ["PGUSER"],
+              password=os.environ["PGPASSWORD"],
           )
-          with cn, cn.cursor() as cur:
-            cur.execute('SELECT COUNT(*) FROM "pro_sante".stg_pro_sante_raw WHERE annee=2018')
-            rows = cur.fetchone()[0]
-            print("Rows STAGING 2018:", rows)
-            if rows == 0:
-              sys.exit("❌ Smoke failed: staging 2018 is empty")
-            else:
-              print("✅ Smoke OK")
+          with conn, conn.cursor() as cur:
+              cur.execute('SELECT COUNT(*) FROM "pro_sante".stg_pro_sante_raw WHERE annee=%s', (y,))
+              n = cur.fetchone()[0]
+              print("Rows STAGING", y, ":", n)
+              if n == 0:
+                  sys.exit("Smoke failed: staging is empty")
+              else:
+                  print("Smoke OK")
           '@ | .\.venv\Scripts\python -

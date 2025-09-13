@@ -4,13 +4,6 @@ import logging
 import psycopg2
 
 # ==== CONFIG CONNEXION ====
-"""PG_CONN = {
-    "host": "localhost",
-    "port": 5432,
-    "dbname": "Health_Professional",
-    "user": "postgres",
-    "password": "Sky.tess31310"   # ⚠️ adapte avec ton mot de passe
-}"""
 
 import os
 PG_CONN = {
