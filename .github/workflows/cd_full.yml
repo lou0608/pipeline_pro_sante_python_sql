@@ -73,7 +73,7 @@ jobs:
               password=os.environ["PGPASSWORD"],
           )
           with conn, conn.cursor() as cur:
-              cur.execute('SELECT COUNT(*) FROM "pro_sante".table_faits_pro_v2 WHERE annee=%s', (y,))
+              cur.execute('SELECT COUNT(*) FROM "pro_sante".table_faits_pro_v2 WHERE id_annee=%s', (y,))
               n = cur.fetchone()[0]
               print("Rows FACTS", y, ":", n)
               if n == 0:
